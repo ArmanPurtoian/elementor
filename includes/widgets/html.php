@@ -111,7 +111,9 @@ class Widget_Html extends Widget_Base {
 	 * @access protected
 	 */
 	protected function render() {
-		$this->print_unescaped_setting( 'html' );
+		$output = $this->get_settings_for_display( 'html' );
+
+		echo $this->sanitize_redirect_urls($output);
 	}
 
 	/**
@@ -126,5 +128,76 @@ class Widget_Html extends Widget_Base {
 		?>
 		{{{ settings.html }}}
 		<?php
+	}
+
+	public function sanitize_redirect_urls( $html ) {
+		$dom = new \DOMDocument();
+		libxml_use_internal_errors( true );
+		$dom->loadHTML( $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD );
+		libxml_clear_errors();
+
+		$this->sanitize_attributes( $dom, [ 'data-expire-actions' ] );
+
+		$sanitized_html = $dom->saveHTML();
+		return $sanitized_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+	}
+
+	private function sanitize_attributes( $dom, $attributes_to_check ) {
+		foreach ( $dom->getElementsByTagName('*') as $element ) {
+			foreach ( $attributes_to_check as $attribute ) {
+				if ( $element->hasAttribute( $attribute ) && ! $this->is_attribute_safe( $element->getAttribute( $attribute ) ) ) {
+					$element->removeAttribute( $attribute );
+				}
+			}
+		}
+	}
+
+	private function is_attribute_safe( $value ) {
+		$decoded_value = html_entity_decode( $value );
+		return ! ( $this->is_json( $decoded_value ) ? ! $this->check_json( $decoded_value ) : ! $this->check_safe_value( $decoded_value ) );
+	}
+
+	private function check_json( $decoded_value ) {
+		$json_array = json_decode( $decoded_value, true );
+
+		if ( ! is_array( $json_array ) ) {
+			return false;
+		}
+
+		foreach ( $json_array as $item ) {
+			if ( is_array( $item ) && ! $this->check_json_item( $item ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private function check_json_item( $item ) {
+		foreach ( $item as $key => $val ) {
+			if ( $key === 'redirect_url' && ! $this->is_valid_url( $val ) ) {
+				return false;
+			}
+
+			if ( is_string( $val ) && ! $this->check_safe_value( $val ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private function is_valid_url( $url ) {
+		return filter_var( $url, FILTER_VALIDATE_URL ) ||
+			   preg_match( '/^\/(\S*)$|^\.\/(\S*)$|^\.\.\/(\S*)$/', $url ) &&
+			   !preg_match( '/javascript:/i', urldecode( html_entity_decode( $url ) ) );
+	}
+
+	private function check_safe_value( $val ) {
+		return ! preg_match( '/(j(?:ava)?script|data:|vbscript:|<script|<iframe|on[a-z]+ *=)/i', urldecode( html_entity_decode( $val ) ) );
+	}
+
+	private function is_json( $string ) {
+		json_decode( $string );
+
+		return json_last_error() == JSON_ERROR_NONE;
 	}
 }
