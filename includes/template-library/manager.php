@@ -406,7 +406,8 @@ class Manager {
 	/**
 	 * Export template.
 	 *
-	 * Export template to a file.
+	 * Export template to a file after ensuring it is a valid Elementor template
+	 * and checking user permissions for private templates.
 	 *
 	 * @since 1.0.0
 	 * @access public
@@ -420,6 +421,16 @@ class Manager {
 
 		if ( is_wp_error( $validate_args ) ) {
 			return $validate_args;
+		}
+
+		$post_id = isset( $args['template_id'] ) ? intval( $args['template_id'] ) : 0;
+		$post = get_post( $post_id );
+		if ( ! $post || get_post_type( $post ) !== 'elementor_library' ) {
+			return new \WP_Error( 'template_error', 'Invalid template type or template does not exist' );
+		}
+
+		if ( 'private' === $post->post_status && ! current_user_can( 'read_private_posts', $post_id ) ) {
+			return new \WP_Error( 'template_error', 'You do not have permission to access this template' );
 		}
 
 		$source = $this->get_source( $args['source'] );
