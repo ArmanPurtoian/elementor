@@ -423,14 +423,14 @@ class Manager {
 			return $validate_args;
 		}
 
-		$post_id = isset( $args['template_id'] ) ? intval( $args['template_id'] ) : 0;
+		$post_id = intval( $args['template_id'] );
 		$post = get_post( $post_id );
-		if ( ! $post || get_post_type( $post ) !== 'elementor_library' ) {
-			return new \WP_Error( 'template_error', 'Invalid template type or template does not exist' );
+		if ( ! $post || get_post_type( $post ) !== Source_Local::CPT ) {
+			return new \WP_Error( 'template_error', esc_html__( 'Invalid template type or template does not exist', 'elementor' ) );
 		}
 
 		if ( 'private' === $post->post_status && ! current_user_can( 'read_private_posts', $post_id ) ) {
-			return new \WP_Error( 'template_error', 'You do not have permission to access this template' );
+			return new \WP_Error( 'template_error', esc_html__( 'You do not have permission to access this template', 'elementor' )  );
 		}
 
 		$source = $this->get_source( $args['source'] );
