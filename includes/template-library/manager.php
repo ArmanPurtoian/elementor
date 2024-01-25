@@ -424,10 +424,9 @@ class Manager {
 		}
 
 		$post_id = intval( $args['template_id'] );
-		$post = get_post( $post_id );
 		$post_status = get_post_status( $post_id );
 
-		if ( ! $post || get_post_type( $post ) !== Source_Local::CPT ) {
+		if ( get_post_type( $post_id ) !== Source_Local::CPT ) {
 			return new \WP_Error( 'template_error', esc_html__( 'Invalid template type or template does not exist', 'elementor' ) );
 		}
 
